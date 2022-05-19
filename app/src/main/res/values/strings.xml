@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">WeatherApp</string>
+    <string name="image_for_background">Image for background</string>
+    <string name="content_icon_based_on_weather">Image for icon</string>
+    <string name="txt_search_another_location">Search Location</string>
+    <string name="content_image_item_weather">Image item weather</string>
+</resources>
