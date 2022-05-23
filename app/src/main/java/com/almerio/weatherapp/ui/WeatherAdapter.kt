@@ -3,9 +3,13 @@ package com.almerio.weatherapp.ui
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.almerio.weatherapp.BuildConfig
 import com.almerio.weatherapp.data.ListItem
 import com.almerio.weatherapp.databinding.RowItemWeatherBinding
 import com.almerio.weatherapp.utils.HelperFunctions.formatterDegree
+import com.almerio.weatherapp.utils.sizeIconWeather2x
+import com.almerio.weatherapp.utils.sizeIconWeather4x
+import com.bumptech.glide.Glide
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -49,6 +53,11 @@ class WeatherAdapter : RecyclerView.Adapter<WeatherAdapter.MyViewHolder>() {
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                 .format(calendar.time).toString()
             tvTime.text = timeFormat
+
+            val iconId = data.weather?.get(0)?.icon
+            val iconUrl = BuildConfig.ICON_URL + iconId + sizeIconWeather2x
+            Glide.with(imgIcWeather.context).load(iconUrl)
+                .into(imgIcWeather)
         }
     }
 

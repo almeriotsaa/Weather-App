@@ -1,16 +1,28 @@
 package com.almerio.weatherapp
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.widget.SearchView
+import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.almerio.weatherapp.data.ForecastResponse
+import com.almerio.weatherapp.data.WeatherResponse
 import com.almerio.weatherapp.databinding.ActivityMainBinding
 import com.almerio.weatherapp.ui.MainViewModel
 import com.almerio.weatherapp.ui.WeatherAdapter
 import com.almerio.weatherapp.utils.HelperFunctions.formatterDegree
+import com.almerio.weatherapp.utils.sizeIconWeather4x
+import com.bumptech.glide.Glide
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,6 +31,10 @@ class MainActivity : AppCompatActivity() {
 
     private var _viewModel: MainViewModel? = null
     private val viewModel get() = _viewModel as MainViewModel
+
+    private val mAdapter by lazy { WeatherAdapter() }
+
+    private var isLoading: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,40 +49,194 @@ class MainActivity : AppCompatActivity() {
         _viewModel = ViewModelProvider(this)[MainViewModel::class.java]
 
         searchCity()
+        getWeatherByCity()
+        getWeatherByCurrentLocation()
 
-        val mAdapter = WeatherAdapter()
+    }
 
-        viewModel.getWeatherByCity().observe(this){
-            binding.apply {
+    private fun getWeatherByCity() {
+
+        viewModel.getWeatherByCity().observe(this) { setupView(it, null) }
+        viewModel.getForecastByCity().observe(this) { setupView(null, it) }
+    }
+
+    private fun setupView(weather: WeatherResponse?, forecast: ForecastResponse?) {
+        binding.apply {
+            weather?.let {
                 tvCity.text = it.name
                 tvDegree.text = formatterDegree(it.main?.temp)
+
+                val iconId = it.weather?.get(0)?.icon
+                val iconUrl = BuildConfig.ICON_URL + iconId + sizeIconWeather4x
+                Glide.with(this@MainActivity).load(iconUrl)
+                    .into(imgIcWeather)
+
+                setupBackgroundImage(it.weather?.get(0)?.id, iconId)
             }
-        }
-        viewModel.getForecastByCity().observe(this){
-            mAdapter.setData(it.list)
+            mAdapter.setData(forecast?.list)
             binding.rvWeather.apply {
                 adapter = mAdapter
-                layoutManager = LinearLayoutManager(this.context, LinearLayoutManager.HORIZONTAL, false)
+                layoutManager = LinearLayoutManager(
+                    this.context,
+                    LinearLayoutManager.HORIZONTAL,
+                    false
+                )
             }
         }
     }
 
-    private fun searchCity() {
-        binding.edtSearch.setOnQueryTextListener(
-            object : SearchView.OnQueryTextListener {
-                override fun onQueryTextSubmit(query: String?): Boolean {
-                    query?.let {
-                        viewModel.weatherByCity(it)
-                        viewModel.forecastByCity(it)
+    private fun setupBackgroundImage(idWeather: Int?, icon: String?) {
+        idWeather?.let {
+            when (idWeather) {
+                in resources.getIntArray(R.array.thunderstorm_id_list) ->
+                    setImageBackground(R.drawable.thunderstorm)
+                in resources.getIntArray(R.array.drizzle_id_list) ->
+                    setImageBackground(R.drawable.drizzle)
+                in resources.getIntArray(R.array.rain_id_list) ->
+                    setImageBackground(R.drawable.rain)
+                in resources.getIntArray(R.array.freezing_rain_id_list) ->
+                    setImageBackground(R.drawable.freezing_rain)
+                in resources.getIntArray(R.array.snow_id_list) ->
+                    setImageBackground(R.drawable.snow)
+                in resources.getIntArray(R.array.sleet_id_list) ->
+                    setImageBackground(R.drawable.sleet)
+                in resources.getIntArray(R.array.clear_id_list) -> {
+                    when (icon) {
+                        "01d" -> setImageBackground(R.drawable.clear)
+                        "01n" -> setImageBackground(R.drawable.clear_night)
                     }
-                    return true
                 }
+                in resources.getIntArray(R.array.clouds_id_list) ->
+                    setImageBackground(R.drawable.lightcloud)
+                in resources.getIntArray(R.array.heavy_clouds_id_list) ->
+                    setImageBackground(R.drawable.heavycloud)
+                in resources.getIntArray(R.array.fog_id_list) ->
+                    setImageBackground(R.drawable.fog)
+                in resources.getIntArray(R.array.sand_id_list) ->
+                    setImageBackground(R.drawable.sand)
+                in resources.getIntArray(R.array.dust_id_list) ->
+                    setImageBackground(R.drawable.dust)
+                in resources.getIntArray(R.array.volcanic_ash_id_list) ->
+                    setImageBackground(R.drawable.volcanic)
+                in resources.getIntArray(R.array.squalls_id_list) ->
+                    setImageBackground(R.drawable.squalls)
+                in resources.getIntArray(R.array.tornado_id_list) ->
+                    setImageBackground(R.drawable.tornado)
+            }
+        }
+    }
 
-                override fun onQueryTextChange(newText: String?): Boolean {
-                    return false
+    private fun setImageBackground(image: Int) {
+        Glide.with(this).load(image).into(binding.imgBgWeather)
+    }
+
+    private fun getWeatherByCurrentLocation() {
+        isLoading = true
+        val fusedLocationClient: FusedLocationProviderClient =
+            LocationServices.getFusedLocationProviderClient(this)
+
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                ),
+                1000
+            )
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener {
+                try {
+                    val lat = it.latitude
+                    val lon = it.longitude
+
+                    viewModel.weatherByCurrentLocation(lat, lon)
+                    viewModel.forecastByCurrentLocation(lat, lon)
+                } catch (e: Throwable) {
+                    Log.e("MainActivity", "C")
                 }
             }
-        )
+            .addOnFailureListener {
+                Log.e("MainActivity", "Failed getting current location")
+            }
 
+        viewModel.weatherByCurrentLocation(1.9, 9.9)
+        viewModel.forecastByCurrentLocation(1.9, 9.9)
+        viewModel.getWeatherByCurrentLocation().observe(this) {
+            setupView(it, null)
+        }
+        viewModel.getForecastByCurrentLocation().observe(this@MainActivity) {
+            setupView(null, it)
+            isLoading = false
+            loadingStateView()
+        }
+
+    }
+
+
+    private fun searchCity() {
+        binding.edtSearch.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let {
+                    isLoading = true
+                    loadingStateView()
+                    try {
+                        val inputMethodManager =
+                            getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                        inputMethodManager.hideSoftInputFromWindow(binding.root.windowToken, 0)
+                    } catch (e: Throwable) {
+                        Log.e("MainActivity", e.toString())
+                    }
+                    viewModel.weatherByCity(it)
+                    viewModel.forecastByCity(it)
+                }
+                isLoading = false
+                loadingStateView()
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                newText?.let {
+                    viewModel.weatherByCity(it)
+                    viewModel.forecastByCity(it)
+                }
+                return true
+            }
+        })
+    }
+    fun loadingStateView() {
+        binding.apply {
+            when (isLoading) {
+                true -> {
+                    layoutWeather.visibility = View.INVISIBLE
+                    progressBar.visibility = View.VISIBLE
+                }
+                false -> {
+                    layoutWeather.visibility = View.VISIBLE
+                    progressBar.visibility = View.INVISIBLE
+                }
+                else -> {
+                    layoutWeather.visibility = View.INVISIBLE
+                    progressBar.visibility = View.VISIBLE
+                }
+            }
+        }
     }
 }

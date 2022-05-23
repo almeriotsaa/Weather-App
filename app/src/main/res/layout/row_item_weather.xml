@@ -38,6 +38,7 @@
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
             android:contentDescription="@string/content_image_item_weather"
+            android:background="@drawable/bg_icon_weather"
             app:layout_constraintBottom_toTopOf="@id/tv_max_temp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
